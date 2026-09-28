@@ -130,6 +130,12 @@ All findings are then passed through `mask_value()` (producing `masked_value`) a
 
 ---
 
+## Dashboard
+
+![PII Leak Detection dashboard showing 47 leaks found, severity breakdown, security score, and detected leaks table](screenshots/Screenshot%202026-09-28%20201932.png)
+
+---
+
 ## Project Structure
 
 ```

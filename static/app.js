@@ -1,5 +1,5 @@
 /**
- * LogGuard — PII Log Leak Detector dashboard logic.
+ * BobGuard — PII Log Leak Detector dashboard logic.
  */
 
 // ---------------------------------------------------------------------------
