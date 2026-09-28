@@ -1,5 +1,5 @@
 /**
- * PII Log Leak Detector — dashboard logic.
+ * LogGuard — PII Log Leak Detector dashboard logic.
  */
 
 // ---------------------------------------------------------------------------
@@ -16,18 +16,19 @@ function maskValue(value) {
 }
 
 // ---------------------------------------------------------------------------
-// Severity badge
+// Severity badge — dark theme
 // ---------------------------------------------------------------------------
 
 const SEVERITY_CLASS = {
-  HIGH:   "bg-red-100 text-red-700",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  LOW:    "bg-green-100 text-green-700",
+  CRITICAL: "badge-critical",
+  HIGH:     "badge-high",
+  MEDIUM:   "badge-medium",
+  LOW:      "badge-low",
 };
 
 function severityBadge(severity) {
-  const cls = SEVERITY_CLASS[severity] || "bg-gray-100 text-gray-600";
-  return `<span class="inline-block px-2 py-0.5 rounded text-xs font-semibold ${cls}">${severity}</span>`;
+  const cls = SEVERITY_CLASS[severity] || "badge-low";
+  return `<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}">${severity}</span>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -44,44 +45,89 @@ function setStatus(msg) {
 }
 
 // ---------------------------------------------------------------------------
+// Progress bar
+// ---------------------------------------------------------------------------
+
+function updateProgress(results) {
+  const wrap = document.getElementById("progressWrap");
+  const bar  = document.getElementById("progressBar");
+  const lbl  = document.getElementById("progressLabel");
+  if (!wrap || !bar) return;
+
+  const total = results.length;
+  const highCritical = results.filter(r => r.severity === "HIGH" || r.severity === "CRITICAL").length;
+
+  wrap.classList.remove("hidden");
+
+  if (total === 0) {
+    bar.style.width = "100%";
+    if (lbl) lbl.textContent = "CLEAN — No leaks detected";
+  } else {
+    // Score degrades with high/critical leaks most heavily
+    const score = Math.max(0, 100 - highCritical * 25 - (total - highCritical) * 8);
+    bar.style.width = score + "%";
+    if (lbl) lbl.textContent = `Score ${score}/100`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Render results
 // ---------------------------------------------------------------------------
 
 function renderResults(data) {
   const results = data.results || [];
 
-  // Update summary cards
-  setText("cardTotal", data.total_leaks ?? results.length);
-  setText("cardHigh",   results.filter(r => r.severity === "HIGH").length);
+  // Summary cards
+  setText("cardTotal",  data.total_leaks ?? results.length);
+  setText("cardHigh",   results.filter(r => r.severity === "HIGH" || r.severity === "CRITICAL").length);
   setText("cardMedium", results.filter(r => r.severity === "MEDIUM").length);
   setText("cardLow",    results.filter(r => r.severity === "LOW").length);
+
+  // Result count label
+  const countEl = document.getElementById("resultCount");
+  if (countEl) {
+    countEl.textContent = results.length === 0
+      ? "No issues found"
+      : `${results.length} issue${results.length !== 1 ? "s" : ""} found`;
+  }
+
+  updateProgress(results);
 
   const tbody = document.getElementById("resultsBody");
   tbody.innerHTML = "";
 
   if (results.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-green-600 font-medium">✓ No PII leaks detected.</td></tr>`;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="px-5 py-12 text-center">
+          <div class="flex flex-col items-center gap-2">
+            <span class="text-2xl">✓</span>
+            <span class="text-emerald-400 font-medium">No PII leaks detected</span>
+            <span class="text-zinc-600 text-xs">All clear — your logs are clean</span>
+          </div>
+        </td>
+      </tr>`;
     return;
   }
 
   for (const r of results) {
-    const logFile    = r.log_file    ? `${r.log_file}` : "—";
-    const sourceFile = r.source_file ? `${r.source_file}` : "—";
+    const logFile    = r.log_file    ? r.log_file    : "—";
+    const sourceFile = r.source_file ? r.source_file : "—";
     const line       = r.log_line ?? r.source_line ?? "—";
 
     const row = document.createElement("tr");
-    row.className = "hover:bg-gray-50 transition-colors";
+    row.className = "result-row border-b border-white/[0.04] transition-colors";
     row.innerHTML = `
-      <td class="px-4 py-3">${severityBadge(r.severity)}</td>
-      <td class="px-4 py-3 font-mono text-xs text-gray-700">${r.pii_type}</td>
-      <td class="px-4 py-3 font-mono text-xs text-gray-600">${maskValue(r.value)}</td>
-      <td class="px-4 py-3 text-xs text-gray-500 truncate max-w-xs" title="${logFile}">${logFile}</td>
-      <td class="px-4 py-3 text-xs text-gray-500 truncate max-w-xs" title="${sourceFile}">${sourceFile}</td>
-      <td class="px-4 py-3 text-xs text-gray-500">${line}</td>
-      <td class="px-4 py-3">
+      <td class="px-5 py-3.5">${severityBadge(r.severity)}</td>
+      <td class="px-5 py-3.5 font-mono text-xs text-violet-300">${r.pii_type}</td>
+      <td class="px-5 py-3.5 font-mono text-xs text-zinc-400">${maskValue(r.value)}</td>
+      <td class="px-5 py-3.5 text-xs text-zinc-500 truncate max-w-xs" title="${logFile}">${logFile}</td>
+      <td class="px-5 py-3.5 text-xs text-zinc-500 truncate max-w-xs" title="${sourceFile}">${sourceFile}</td>
+      <td class="px-5 py-3.5 text-xs text-zinc-500">${line}</td>
+      <td class="px-5 py-3.5">
         <button
           disabled
-          class="text-xs px-3 py-1 rounded border border-gray-200 text-gray-400 cursor-not-allowed"
+          class="text-xs px-3 py-1.5 rounded-lg border border-white/[0.08] text-zinc-600 cursor-not-allowed"
           title="Fix application available in Phase 2"
         >Apply Fix</button>
       </td>
@@ -116,7 +162,7 @@ async function scanProject() {
 
     const data = await response.json();
     renderResults(data);
-    setStatus(`Scan complete — ${data.total_leaks} leak(s) found.`);
+    setStatus(`Scan complete — ${data.total_leaks} leak(s) found`);
   } catch (err) {
     setStatus(`Error: ${err.message}`);
     console.error(err);

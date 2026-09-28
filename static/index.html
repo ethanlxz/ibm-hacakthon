@@ -3,73 +3,238 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PII Log Leak Detector</title>
+  <title>LogGuard — PII Leak Detector</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#0A0A0A',
+            zinc: { 950: '#030303' }
+          },
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --violet: #8B5CF6;
+      --violet-light: #A78BFA;
+      --cyan: #06B6D4;
+      --cyan-light: #22D3EE;
+      --emerald: #10B981;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: #030303;
+      font-family: 'Inter', sans-serif;
+      color: #F5F5F5;
+      min-height: 100vh;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #030303; }
+    ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3F3F46; }
+
+    /* Ambient orbs */
+    .orb {
+      position: fixed;
+      border-radius: 9999px;
+      pointer-events: none;
+      z-index: 0;
+      animation: float 10s ease-in-out infinite;
+    }
+    .orb-violet {
+      width: 500px; height: 500px;
+      top: -150px; left: -100px;
+      background: rgba(139, 92, 246, 0.18);
+      filter: blur(100px);
+      animation-duration: 12s;
+    }
+    .orb-cyan {
+      width: 400px; height: 400px;
+      bottom: -100px; right: -80px;
+      background: rgba(6, 182, 212, 0.15);
+      filter: blur(100px);
+      animation-duration: 15s;
+      animation-delay: -5s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
+
+    /* Glass card */
+    .glass {
+      background: rgba(10, 10, 10, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .glass:hover {
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    /* Gradient text */
+    .gradient-text {
+      background: linear-gradient(90deg, #a78bfa 0%, #ffffff 40%, #ffffff 60%, #22d3ee 100%);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 6s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* Nav */
+    nav {
+      background: rgba(3, 3, 3, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Progress bar */
+    .progress-fill {
+      background: linear-gradient(90deg, #8b5cf6, #06b6d4);
+      border-radius: 9999px;
+    }
+
+    /* Table row hover */
+    .result-row:hover { background: rgba(255,255,255,0.025); }
+
+    /* Entrance animation */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s ease-out forwards;
+    }
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .gradient-text { animation: none; }
+      .fade-up { animation: none; opacity: 1; transform: none; }
+    }
+
+    /* Custom badge colours */
+    .badge-critical { background: rgba(239,68,68,0.15); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-high     { background: rgba(249,115,22,0.12); color: #FDBA74; border: 1px solid rgba(249,115,22,0.3); }
+    .badge-medium   { background: rgba(234,179,8,0.12);  color: #FDE047; border: 1px solid rgba(234,179,8,0.25); }
+    .badge-low      { background: rgba(16,185,129,0.12); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.25); }
+  </style>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen">
+<body>
+  <!-- Ambient background orbs -->
+  <div class="orb orb-violet"></div>
+  <div class="orb orb-cyan"></div>
 
-  <!-- Header -->
-  <header class="bg-white border-b border-gray-200 px-6 py-5 shadow-sm">
-    <h1 class="text-2xl font-bold text-gray-900">PII Log Leak Detector</h1>
-    <p class="text-sm text-gray-500 mt-1">Protect sensitive data before it reaches production logs</p>
-  </header>
-
-  <main class="max-w-6xl mx-auto px-6 py-8">
-
-    <!-- Scan Controls -->
-    <div class="flex items-center gap-4 mb-8">
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="/static/landing.html" class="text-zinc-400 hover:text-white transition-colors text-sm">← Home</a>
+      <span class="text-zinc-700">|</span>
+      <span class="font-semibold text-white tracking-tight">LogGuard</span>
+      <span class="text-xs px-2 py-0.5 rounded-full border border-violet-500/40 text-violet-400 font-medium">Dashboard</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="scanStatus" class="text-xs text-zinc-500"></span>
       <button
         id="scanBtn"
         onclick="scanProject()"
-        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors"
+        class="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_0_25px_-8px_#8b5cf6]"
       >
         Scan Project
       </button>
-      <span id="scanStatus" class="text-sm text-gray-500"></span>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="relative z-10 max-w-7xl mx-auto px-6 py-10">
+
+    <!-- Page title -->
+    <div class="mb-10 fade-up" style="animation-delay:0.05s">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 mb-3">Security Scanner</p>
+      <h1 class="font-serif text-5xl font-normal leading-[0.95] tracking-[-0.04em] text-white md:text-6xl">
+        PII Leak <span class="gradient-text">Detection</span>
+      </h1>
+      <p class="mt-3 text-zinc-400 text-sm max-w-lg">
+        Scan Python source code and application logs for exposed personally identifiable information before it reaches production.
+      </p>
     </div>
 
     <!-- Summary Cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <div class="bg-white rounded-xl border border-gray-200 p-5">
-        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total Leaks</p>
-        <p id="cardTotal" class="text-3xl font-bold text-gray-900">—</p>
+      <div class="glass rounded-2xl p-5 fade-up" style="animation-delay:0.1s">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 mb-2">Total Leaks</p>
+        <p id="cardTotal" class="text-4xl font-semibold text-white">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-red-200 p-5">
-        <p class="text-xs font-medium text-red-500 uppercase tracking-wide mb-1">High Severity</p>
-        <p id="cardHigh" class="text-3xl font-bold text-red-600">—</p>
+      <div class="glass rounded-2xl p-5 fade-up" style="animation-delay:0.15s">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-red-500/80 mb-2">High / Critical</p>
+        <p id="cardHigh" class="text-4xl font-semibold text-red-400">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-yellow-200 p-5">
-        <p class="text-xs font-medium text-yellow-600 uppercase tracking-wide mb-1">Medium Severity</p>
-        <p id="cardMedium" class="text-3xl font-bold text-yellow-500">—</p>
+      <div class="glass rounded-2xl p-5 fade-up" style="animation-delay:0.2s">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-500/80 mb-2">Medium</p>
+        <p id="cardMedium" class="text-4xl font-semibold text-yellow-400">—</p>
       </div>
-      <div class="bg-white rounded-xl border border-green-200 p-5">
-        <p class="text-xs font-medium text-green-600 uppercase tracking-wide mb-1">Low Severity</p>
-        <p id="cardLow" class="text-3xl font-bold text-green-600">—</p>
+      <div class="glass rounded-2xl p-5 fade-up" style="animation-delay:0.25s">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-500/80 mb-2">Low</p>
+        <p id="cardLow" class="text-4xl font-semibold text-emerald-400">—</p>
+      </div>
+    </div>
+
+    <!-- Progress bar (hidden until scan completes) -->
+    <div id="progressWrap" class="hidden glass rounded-2xl p-5 mb-8 fade-up">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Security Score</p>
+        <span id="progressLabel" class="text-xs text-zinc-400"></span>
+      </div>
+      <div class="h-2 rounded-full" style="background: rgba(255,255,255,0.06);">
+        <div id="progressBar" class="progress-fill h-2 transition-all duration-700" style="width:0%"></div>
       </div>
     </div>
 
     <!-- Results Table -->
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="font-semibold text-gray-800">Detected Leaks</h2>
+    <div class="glass rounded-2xl overflow-hidden fade-up" style="animation-delay:0.3s">
+      <div class="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+        <h2 class="font-semibold text-white">Detected Leaks</h2>
+        <span id="resultCount" class="text-xs text-zinc-500"></span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            <tr>
-              <th class="px-4 py-3 text-left">Severity</th>
-              <th class="px-4 py-3 text-left">PII Type</th>
-              <th class="px-4 py-3 text-left">Masked Value</th>
-              <th class="px-4 py-3 text-left">Log File</th>
-              <th class="px-4 py-3 text-left">Source File</th>
-              <th class="px-4 py-3 text-left">Line</th>
-              <th class="px-4 py-3 text-left">Action</th>
+          <thead>
+            <tr class="border-b border-white/[0.04]">
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">Severity</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">PII Type</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">Masked Value</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">Log File</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">Source File</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">Line</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">Action</th>
             </tr>
           </thead>
-          <tbody id="resultsBody" class="divide-y divide-gray-100">
+          <tbody id="resultsBody">
             <tr id="emptyRow">
-              <td colspan="7" class="px-4 py-8 text-center text-gray-400">
-                Run a scan to see results.
+              <td colspan="7" class="px-5 py-12 text-center text-zinc-600 text-sm">
+                Run a scan to detect PII leaks.
               </td>
             </tr>
           </tbody>
