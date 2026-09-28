@@ -130,6 +130,12 @@ All findings are then passed through `mask_value()` (producing `masked_value`) a
 
 ---
 
+## Landing Page
+
+![BobGuard landing page — "Stop PII before it reaches your logs" hero with nav, open dashboard CTA, and compliance trust badges](screenshots/Screenshot%202026-09-28%20202224.png)
+
+---
+
 ## Dashboard
 
 ![PII Leak Detection dashboard showing 47 leaks found, severity breakdown, security score, and detected leaks table](screenshots/Screenshot%202026-09-28%20201932.png)
