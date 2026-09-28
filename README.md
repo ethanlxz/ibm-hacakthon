@@ -46,19 +46,19 @@ Credit card numbers are validated using the **Luhn checksum** after regex matchi
 └──────────────────────┬──────────────────┬───────────────────────┘
                        │                  │
             ┌──────────▼──────┐  ┌────────▼──────────┐
-            │  Source Scanner │  │   Log Scanner     │
-            │  (scanner.py)   │  │   (scanner.py)    │
-            └──────────┬──────┘  └────────┬──────────┘
+            │  AST Source     │  │   Log Scanner     │
+            │  Scanner        │  │   (scanner.py)    │
+            │ (source_tracer) │  └────────┬──────────┘
+            └──────────┬──────┘           │
+                       │           Reads .log line
+            ast.parse() walk        by line
+            visits Call nodes        │
+            → logger.*() / print()   │
+            → extracts variables,    Runs all 5 PII
+              pii_fields,            detectors on
+              logs_whole_object      each line
                        │                  │
-            Walks .py files        Reads .log line
-            with pathlib.rglob     by line
-                       │                  │
-            Flags logger.*() /     Runs all 5 PII
-            print() calls that     detectors on
-            reference PII fields   each line
-            or whole objects       │
-                       │          │
-                       └────┬─────┘
+                       └────┬─────────────┘
                             │
                    ┌────────▼────────┐
                    │   app/detectors │
@@ -72,8 +72,32 @@ Credit card numbers are validated using the **Luhn checksum** after regex matchi
                    └────────┬────────┘
                             │
                    ┌────────▼────────┐
+                   │   correlate()   │
+                   │ (source_tracer) │
+                   │ links log hits  │
+                   │ → source lines  │
+                   └────────┬────────┘
+                            │
+                   ┌────────▼────────┐
+                   │  mask_value()   │
+                   │  (masking.py)   │
+                   │ redacts PII in  │
+                   │ API responses   │
+                   └────────┬────────┘
+                            │
+                   ┌────────▼────────┐
+                   │  suggest_fix()  │
+                   │  (fixer.py)     │
+                   │ generates safe  │
+                   │ replacement code│
+                   └────────┬────────┘
+                            │
+                   ┌────────▼────────┐
                    │  PiiMatch list  │
                    │  (models.py)    │
+                   │  id, pii_type,  │
+                   │  masked_value,  │
+                   │  suggested_fix  │
                    └────────┬────────┘
                             │
                    ┌────────▼────────┐
@@ -88,6 +112,9 @@ Credit card numbers are validated using the **Luhn checksum** after regex matchi
                    │  static/        │
                    │  index.html     │
                    │  + app.js       │
+                   │  detail panel,  │
+                   │  Apply Fix,     │
+                   │  auto-rescan    │
                    └─────────────────┘
 ```
 
@@ -95,9 +122,11 @@ Credit card numbers are validated using the **Luhn checksum** after regex matchi
 
 **Log scanner** — opens `.log` files and runs all five PII detectors against every line. Returns the PII type, masked value, file path, and exact line number of each hit.
 
-**Source scanner** — walks all `.py` files under the target directory and flags any `logger.*()` or `print()` call whose argument references a PII field name (`.ic_number`, `.card_number`, `.email`, `.account_number`, `.phone`), a whole-object f-string interpolation (`{customer}`), or a `request`/`payload` variable. This catches leaks at the source before they ever produce output.
+**AST source scanner** (`source_tracer.py`) — replaces the Phase 1 regex source scanner. Parses every `.py` file under the target directory using Python's built-in `ast` module. A custom `NodeVisitor` walks all `ast.Call` nodes and identifies any `logger.*()` or `print()` call whose arguments reference a known PII field name (`.ic_number`, `.card_number`, `.email`, `.account_number`, `.phone`), a whole-object f-string interpolation (`{customer}`), or a dangerous variable (`payload`, `request_data`, `error`, etc.). This produces exact line numbers and structured metadata — `pii_fields`, `logs_whole_object`, `variables` — that the masking and fix modules consume downstream.
 
-Both scan modes produce `PiiMatch` records that share the same Pydantic model, so the API response and dashboard treat log-origin and source-origin findings uniformly.
+**Source-to-log correlation** — after both scanners run, `correlate()` links each log finding back to the source statement that produced it using token-based matching between the source snippet and the log line. When a match is found, `source_file` and `source_line` are populated on the log finding.
+
+All findings are then passed through `mask_value()` (producing `masked_value`) and `suggest_fix()` (producing `suggested_fix`) before the `ScanResult` is returned. Both scan modes produce `PiiMatch` records sharing the same Pydantic model, so the API response and dashboard treat log-origin and source-origin findings uniformly.
 
 ---
 
@@ -140,15 +169,93 @@ pii-log-detector/
 
 ---
 
+## Phase 2 Features
+
+### AST-based source analysis
+
+The Phase 1 regex scanner is replaced by a proper Python AST walk in `source_tracer.py`. Each risky log call produces a structured finding with:
+
+- `pii_fields` — list of PII-sensitive attribute names found in the call arguments (e.g. `["ic_number"]`)
+- `logs_whole_object` — `true` when a bare variable (not an attribute) is interpolated, indicating an entire object is logged
+- `variables` — full list of variable and attribute names referenced in the call
+- `snippet` — the exact source line text, stripped of leading whitespace
+- `source_line` — exact integer line number from the AST (not approximate)
+
+The visitor detects all six logging methods (`info`, `debug`, `warning`, `error`, `exception`, `print`) and recognises dangerous variable names (`payload`, `request_data`, `request`, `error`, `customer`, `user`, `token`, `password`, `secret`) as whole-object risks even when passed as positional arguments (e.g. `logger.exception(error)`).
+
+### Source-to-log correlation
+
+`correlate()` in `source_tracer.py` links log findings to the source statement that produced them. The matcher extracts meaningful tokens (≥ 4 characters, not Python keywords) from the source snippet and checks whether any appear in the log line. When matched, `source_file`, `source_line`, and `logger_method` are copied into the log finding. Unmatched log findings are returned unchanged.
+
+### PII masking
+
+`masking.py` provides five masking functions and a single `mask_value(pii_type, value)` dispatch entry point. Every `PiiMatch` returned by the API now includes a `masked_value` field — raw PII is never surfaced in API responses.
+
+| PII Type | Raw | Masked |
+|----------|-----|--------|
+| NRIC | `991231-14-5678` | `9*****-**-***8` |
+| CARD_NUMBER | `4111111111111111` | `************1111` |
+| ACCOUNT_NUMBER | `123456789012` | `********9012` |
+| EMAIL | `alice@example.com` | `a****@example.com` |
+| PHONE_NUMBER | `+60123456789` | `*******6789` |
+
+### Fix suggestions
+
+`fixer.py` provides `suggest_fix(match)` which generates a safe replacement code line for any source finding. Two patterns are handled:
+
+**Direct PII field reference** — wraps the field access in the appropriate `mask_*()` call:
+```python
+# Before
+logger.info(f"Customer IC: {customer.ic_number}")
+# Suggested fix
+logger.info(f"Customer IC: {mask_ic(customer.ic_number)}")
+```
+
+**Whole-object logging** — rewrites to log only the object's id:
+```python
+# Before
+logger.info(f"Processing {customer}")
+# Suggested fix
+logger.info("Processing customer_id=%s", customer.id)
+```
+
+Log-only findings (no source context) return `None` for `suggested_fix`.
+
+### Apply Fix + rescan workflow
+
+`POST /api/fix` reads the target source file, replaces the flagged line in-place with `suggested_fix`, and returns `{"status": "fixed", "file": "...", "line": ...}`. If a finding has no `suggested_fix`, it returns `{"status": "no_fix_available"}`.
+
+`POST /api/rescan` re-runs the full scan pipeline — log scan → AST source scan → correlate → mask → suggest — using the same paths as the last scan, and returns a fresh `ScanResult`. The dashboard calls rescan automatically after every applied fix and re-renders the results without a page reload.
+
+### Enhanced dashboard
+
+The Phase 2 dashboard adds a detail panel that expands when a row is clicked:
+
+```
+HIGH — NRIC Leak
+
+Detected:    9*****-**-***8
+Log:         logs/test.log:4
+Source:      demo_app/customer_service.py:17
+Code:        logger.info(f"Verifying identity for IC: {customer.ic_number}")
+Suggested:   logger.info(f"Verifying identity for IC: {mask_ic(customer.ic_number)}")
+
+[Apply Fix]
+```
+
+Clicking **Apply Fix** sends `POST /api/fix`, then automatically triggers `POST /api/rescan`, and re-renders the summary cards and results table. A status message ("Fix applied — rescanning…") is shown during the async operation.
+
+---
+
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/` | Serves the web dashboard |
-| `POST` | `/api/scan` | Runs both scanners, returns `ScanResult` |
+| `POST` | `/api/scan` | Runs full pipeline (log + AST source scan → correlate → mask → suggest), returns `ScanResult` |
 | `GET` | `/api/results` | Returns the most recent scan result |
-| `POST` | `/api/fix` | Apply a suggested fix to the source file |
-| `POST` | `/api/rescan` | Re-run the full scan pipeline after fixes |
+| `POST` | `/api/fix` | Applies `suggested_fix` to the source file in-place |
+| `POST` | `/api/rescan` | Re-runs the full scan pipeline with the last scan's paths |
 
 ### `POST /api/scan`
 
@@ -193,6 +300,37 @@ Response:
   ]
 }
 ```
+
+### `POST /api/fix`
+
+Request:
+```json
+{
+  "finding_id": "b7e9d0f2-..."
+}
+```
+
+Response (fix applied):
+```json
+{
+  "status": "fixed",
+  "file": "demo_app/customer_service.py",
+  "line": 17
+}
+```
+
+Response (no fix available):
+```json
+{
+  "status": "no_fix_available"
+}
+```
+
+### `POST /api/rescan`
+
+No request body required. Re-uses the paths from the last `POST /api/scan` call.
+
+Response: same shape as `POST /api/scan`.
 
 ---
 
@@ -287,6 +425,41 @@ The three-step pattern — **high-level vision → detailed phase plan → agent
 - **Agent mode execution** against a written plan produces focused, minimal changes. The agent traces every edit back to a specific sub-task requirement rather than improvising scope.
 
 This mirrors the **Detect → Trace → Explain → Fix → Verify** loop that BobGuard itself implements for PII leaks — the same disciplined, step-by-step approach applied to the development process itself.
+
+---
+
+## Feasibility
+
+BobGuard is built entirely on stable, widely-adopted components with no proprietary dependencies, no external services, and no model inference at runtime. Each design choice was made to keep the tool usable by a single developer on a local machine with no special infrastructure.
+
+### Technical feasibility
+
+| Concern | Approach | Why it is realistic |
+|---------|----------|---------------------|
+| PII detection accuracy | Regex + Luhn checksum | NRIC, card, email, phone, and account patterns are well-defined. Luhn validation eliminates the majority of false-positive card hits from random digit sequences. Accuracy is high for structured PII categories. |
+| Source leak detection | Text-pattern matching (Phase 1), Python `ast` (Phase 2) | Python's built-in `ast` module parses real source reliably without external parsers. Field-name heuristics (`ic_number`, `card_number`, etc.) cover the most common leak patterns in real codebases. |
+| Automated fix application | In-place file rewriting via `fixer.py` | Fixes are simple string substitutions on a known line number — wrapping a field reference in a masking function call. This is deterministic and reversible with version control. |
+| Performance at scale | Line-by-line log streaming, `pathlib.rglob` traversal | No full file is loaded into memory. A codebase of hundreds of files and log files of hundreds of thousands of lines can be scanned in seconds on commodity hardware. |
+| API surface | FastAPI + Uvicorn | Async Python HTTP server. No separate database, no message queue, no container required. State is held in memory between requests, which is sufficient for a developer-local workflow. |
+| Frontend | Pure HTML + Tailwind CDN + Fetch API | Zero build step. The dashboard runs in any browser without a Node.js toolchain. |
+
+### Scope boundaries
+
+The tool is designed as a **developer-local pre-commit / pre-deploy check**, not a production runtime monitor. This is a deliberate scope decision, not a limitation:
+
+- It scans files and logs that already exist on disk. It does not intercept live traffic.
+- It targets structured PII categories with well-known formats. Free-text PII (e.g. a customer name embedded in a sentence) is out of scope for the current detector set.
+- Fix suggestions are heuristic. They cover the four most common leak patterns (direct field log, whole-object log, exception payload, request dict). Novel patterns require manual review.
+- Scan history and compliance mapping (Phase 3) are intentionally deferred. The core detect-trace-fix-verify loop is fully functional without them.
+
+### Risk and mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| False positives in card detection | Luhn checksum validation after regex match. Only valid card numbers are reported. |
+| False negatives for obfuscated field names | Source scanner flags any variable named with common PII synonyms. Edge cases are caught by the log scanner which operates on actual output values regardless of variable naming. |
+| Fix application corrupts source file | Fixes target a single line number returned by the scanner. The original line is preserved as a comment in the suggested fix output. Version control provides a full safety net. |
+| Test data mistaken for real PII | A `.piiignore` allowlist (Phase 3) excludes known fixture paths and synthetic values. In the current phases, demo data is confined to `demo_app/` which can be excluded from production scans. |
 
 ---
 

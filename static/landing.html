@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LogGuard — Stop PII Before It Reaches Your Logs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #030303;
+      font-family: 'Inter', sans-serif;
+      color: #F5F5F5;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #030303; }
+    ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3F3F46; }
+
+    /* ---------- AMBIENT ORBS ---------- */
+    .orb {
+      position: absolute;
+      border-radius: 9999px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-hero-violet {
+      width: 700px; height: 700px;
+      top: -200px; left: -150px;
+      background: rgba(139, 92, 246, 0.22);
+      filter: blur(120px);
+      animation: float 14s ease-in-out infinite;
+    }
+    .orb-hero-cyan {
+      width: 500px; height: 500px;
+      top: 100px; right: -100px;
+      background: rgba(6, 182, 212, 0.18);
+      filter: blur(100px);
+      animation: float 11s ease-in-out infinite;
+      animation-delay: -4s;
+    }
+    .orb-features-violet {
+      width: 600px; height: 600px;
+      top: 0; right: -200px;
+      background: rgba(139, 92, 246, 0.14);
+      filter: blur(120px);
+    }
+    .orb-cta-cyan {
+      width: 600px; height: 600px;
+      bottom: -100px; left: -150px;
+      background: rgba(6, 182, 212, 0.16);
+      filter: blur(120px);
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-24px) scale(1.06); }
+    }
+
+    /* ---------- GLASS ---------- */
+    .glass {
+      background: rgba(10, 10, 10, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .glass-hover {
+      transition: all 300ms ease;
+    }
+    .glass-hover:hover {
+      background: rgba(15, 15, 15, 0.8);
+      border-color: rgba(255,255,255,0.14);
+      transform: translateY(-4px);
+      box-shadow: 0 0 25px -12px #8b5cf6;
+    }
+
+    /* ---------- GRADIENT TEXT ---------- */
+    .gradient-text {
+      background: linear-gradient(90deg, #a78bfa 0%, #ffffff 38%, #ffffff 62%, #22d3ee 100%);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 7s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* ---------- NAV ---------- */
+    nav {
+      background: rgba(3, 3, 3, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ---------- SECTION LABEL ---------- */
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #57606a;
+    }
+
+    /* ---------- PROGRESS BAR ---------- */
+    .progress-fill { background: linear-gradient(90deg, #8b5cf6, #06b6d4); border-radius: 9999px; }
+    .progress-track { background: rgba(255,255,255,0.06); border-radius: 9999px; }
+
+    /* ---------- TICKER ---------- */
+    .ticker-wrap { overflow: hidden; }
+    .ticker-inner {
+      display: flex;
+      gap: 2rem;
+      width: max-content;
+      animation: ticker 30s linear infinite;
+    }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ---------- FADE UP ---------- */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ---------- GLOW SHADOW ---------- */
+    .shadow-violet { box-shadow: 0 0 25px -8px rgba(139,92,246,0.8); }
+    .shadow-cyan   { box-shadow: 0 0 25px -8px rgba(6,182,212,0.6); }
+
+    /* ---------- BADGE ---------- */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge-violet { background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.35); color: #A78BFA; }
+    .badge-cyan   { background: rgba(6,182,212,0.12);  border: 1px solid rgba(6,182,212,0.3);  color: #22D3EE; }
+    .badge-emerald{ background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #6EE7B7; }
+
+    /* Severity pills for demo table */
+    .sev-critical { background: rgba(239,68,68,0.15);   color: #FCA5A5; border:1px solid rgba(239,68,68,0.3); }
+    .sev-high     { background: rgba(249,115,22,0.12);  color: #FDBA74; border:1px solid rgba(249,115,22,0.3); }
+    .sev-medium   { background: rgba(234,179,8,0.12);   color: #FDE047; border:1px solid rgba(234,179,8,0.25); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .gradient-text, .ticker-inner { animation: none; }
+      .fade-up { opacity: 1; transform: none; transition: none; }
+      .glass-hover:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== NAV ===================== -->
+  <nav class="sticky top-0 z-50 px-6 py-4 flex items-center justify-between max-w-[1400px] mx-auto">
+    <div class="flex items-center gap-2">
+      <!-- Shield icon (inline SVG) -->
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span class="font-semibold text-white tracking-tight text-lg">LogGuard</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+      <a href="#features" class="hover:text-white transition-colors">Features</a>
+      <a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a>
+      <a href="#compliance" class="hover:text-white transition-colors">Compliance</a>
+    </div>
+    <a
+      href="/static/index.html"
+      class="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_0_25px_-8px_#8b5cf6]"
+    >
+      Open Dashboard →
+    </a>
+  </nav>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="relative overflow-hidden pt-28 pb-32 px-6">
+    <div class="orb orb-hero-violet"></div>
+    <div class="orb orb-hero-cyan"></div>
+    <div class="relative z-10 max-w-[1400px] mx-auto text-center">
+
+      <!-- Section label -->
+      <div class="mb-6 fade-up">
+        <span class="badge badge-violet">Developer Security Tooling</span>
+      </div>
+
+      <!-- Hero heading -->
+      <h1 class="fade-up font-serif font-normal leading-[0.92] tracking-[-0.045em] text-white mb-6" style="font-size:clamp(3rem,7vw,7rem); animation-delay:0.05s">
+        Stop PII before it<br/>
+        <span class="gradient-text">reaches your logs</span>
+      </h1>
+
+      <!-- Sub-copy -->
+      <p class="fade-up text-zinc-400 text-lg max-w-2xl mx-auto mb-10 leading-relaxed" style="animation-delay:0.1s">
+        LogGuard scans your Python source code and application logs for exposed personal data —
+        NRIC, credit cards, emails, bank accounts — then traces the exact line responsible and
+        generates a fix you can apply in one click.
+      </p>
+
+      <!-- CTAs -->
+      <div class="fade-up flex flex-col sm:flex-row gap-4 justify-center" style="animation-delay:0.15s">
+        <a
+          href="/static/index.html"
+          class="rounded-xl bg-violet-600 px-7 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-violet-500 hover:shadow-[0_0_25px_-8px_#8b5cf6]"
+        >
+          Open Dashboard →
+        </a>
+        <a
+          href="#how-it-works"
+          class="rounded-xl px-7 py-3.5 text-sm font-medium text-zinc-300 transition-all duration-300 hover:text-white"
+          style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);"
+        >
+          See How It Works
+        </a>
+      </div>
+
+      <!-- Social proof strip -->
+      <div class="fade-up flex flex-wrap gap-6 justify-center mt-12 text-xs text-zinc-500" style="animation-delay:0.2s">
+        <span class="flex items-center gap-2">
+          <span style="color:#10B981">✓</span> PDPA aligned
+        </span>
+        <span class="flex items-center gap-2">
+          <span style="color:#10B981">✓</span> PCI DSS aware
+        </span>
+        <span class="flex items-center gap-2">
+          <span style="color:#10B981">✓</span> Zero dependencies on cloud
+        </span>
+        <span class="flex items-center gap-2">
+          <span style="color:#10B981">✓</span> Runs fully local
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TICKER ===================== -->
+  <div class="border-y py-4" style="border-color:rgba(255,255,255,0.06)">
+    <div class="ticker-wrap">
+      <div class="ticker-inner text-xs text-zinc-600 font-medium uppercase tracking-widest">
+        <!-- duplicate items for seamless loop -->
+        <span>NRIC Leaks</span><span>•</span>
+        <span>Credit Card Numbers</span><span>•</span>
+        <span>Email Addresses</span><span>•</span>
+        <span>Bank Account Numbers</span><span>•</span>
+        <span>Phone Numbers</span><span>•</span>
+        <span>Passport Numbers</span><span>•</span>
+        <span>Auth Tokens</span><span>•</span>
+        <span>Request Payloads</span><span>•</span>
+        <span>Exception Messages</span><span>•</span>
+        <span>Object Repr Dumps</span><span>•</span>
+        <span>NRIC Leaks</span><span>•</span>
+        <span>Credit Card Numbers</span><span>•</span>
+        <span>Email Addresses</span><span>•</span>
+        <span>Bank Account Numbers</span><span>•</span>
+        <span>Phone Numbers</span><span>•</span>
+        <span>Passport Numbers</span><span>•</span>
+        <span>Auth Tokens</span><span>•</span>
+        <span>Request Payloads</span><span>•</span>
+        <span>Exception Messages</span><span>•</span>
+        <span>Object Repr Dumps</span><span>•</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== DEMO PREVIEW ===================== -->
+  <section class="relative py-24 px-6">
+    <div class="max-w-[1400px] mx-auto">
+      <div class="text-center mb-12 fade-up">
+        <p class="section-label mb-3">Live Output Preview</p>
+        <h2 class="font-serif font-normal text-white tracking-[-0.03em] text-4xl md:text-5xl">
+          See every leak, instantly
+        </h2>
+      </div>
+
+      <!-- Mock dashboard card -->
+      <div class="glass rounded-3xl overflow-hidden fade-up" style="animation-delay:0.1s">
+        <!-- Mock nav bar inside card -->
+        <div class="px-6 py-4 flex items-center justify-between" style="border-bottom:1px solid rgba(255,255,255,0.06)">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-semibold text-white">Scan Results</span>
+            <span class="badge badge-violet">4 issues</span>
+          </div>
+          <span class="text-xs text-zinc-500">demo_app/ · logs/test.log</span>
+        </div>
+
+        <!-- Mock summary stats -->
+        <div class="grid grid-cols-4 gap-px" style="background:rgba(255,255,255,0.04)">
+          <div class="px-6 py-5" style="background:#030303">
+            <p class="section-label mb-1">Total Leaks</p>
+            <p class="text-3xl font-semibold text-white">4</p>
+          </div>
+          <div class="px-6 py-5" style="background:#030303">
+            <p class="section-label mb-1" style="color:rgba(249,115,22,0.7)">High / Critical</p>
+            <p class="text-3xl font-semibold" style="color:#FDBA74">2</p>
+          </div>
+          <div class="px-6 py-5" style="background:#030303">
+            <p class="section-label mb-1" style="color:rgba(234,179,8,0.7)">Medium</p>
+            <p class="text-3xl font-semibold" style="color:#FDE047">1</p>
+          </div>
+          <div class="px-6 py-5" style="background:#030303">
+            <p class="section-label mb-1" style="color:rgba(16,185,129,0.7)">Low</p>
+            <p class="text-3xl font-semibold" style="color:#6EE7B7">1</p>
+          </div>
+        </div>
+
+        <!-- Mock table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs" style="background:#030303">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                <th class="px-5 py-3 text-left section-label">Severity</th>
+                <th class="px-5 py-3 text-left section-label">PII Type</th>
+                <th class="px-5 py-3 text-left section-label">Masked Value</th>
+                <th class="px-5 py-3 text-left section-label">Log File</th>
+                <th class="px-5 py-3 text-left section-label">Source</th>
+                <th class="px-5 py-3 text-left section-label">Line</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                <td class="px-5 py-3"><span class="badge sev-high">HIGH</span></td>
+                <td class="px-5 py-3 font-mono" style="color:#A78BFA">NRIC</td>
+                <td class="px-5 py-3 font-mono" style="color:#71717A">S*****67D</td>
+                <td class="px-5 py-3" style="color:#52525B">logs/test.log:38</td>
+                <td class="px-5 py-3" style="color:#52525B">customer_service.py</td>
+                <td class="px-5 py-3" style="color:#52525B">42</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                <td class="px-5 py-3"><span class="badge sev-critical">CRITICAL</span></td>
+                <td class="px-5 py-3 font-mono" style="color:#A78BFA">CARD_NUMBER</td>
+                <td class="px-5 py-3 font-mono" style="color:#71717A">************1111</td>
+                <td class="px-5 py-3" style="color:#52525B">logs/test.log:71</td>
+                <td class="px-5 py-3" style="color:#52525B">payment_service.py</td>
+                <td class="px-5 py-3" style="color:#52525B">29</td>
+              </tr>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                <td class="px-5 py-3"><span class="badge sev-medium">MEDIUM</span></td>
+                <td class="px-5 py-3 font-mono" style="color:#A78BFA">EMAIL</td>
+                <td class="px-5 py-3 font-mono" style="color:#71717A">a****@example.com</td>
+                <td class="px-5 py-3" style="color:#52525B">logs/test.log:12</td>
+                <td class="px-5 py-3" style="color:#52525B">api_service.py</td>
+                <td class="px-5 py-3" style="color:#52525B">17</td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3"><span class="badge" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#6EE7B7">LOW</span></td>
+                <td class="px-5 py-3 font-mono" style="color:#A78BFA">PHONE</td>
+                <td class="px-5 py-3 font-mono" style="color:#71717A">+60*****456</td>
+                <td class="px-5 py-3" style="color:#52525B">logs/test.log:54</td>
+                <td class="px-5 py-3" style="color:#52525B">customer.py</td>
+                <td class="px-5 py-3" style="color:#52525B">88</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FEATURES ===================== -->
+  <section id="features" class="relative py-24 px-6 overflow-hidden">
+    <div class="orb orb-features-violet"></div>
+    <div class="relative z-10 max-w-[1400px] mx-auto">
+      <div class="text-center mb-16 fade-up">
+        <p class="section-label mb-3">Core Capabilities</p>
+        <h2 class="font-serif font-normal text-white tracking-[-0.03em] text-4xl md:text-5xl">
+          From detection to <span class="gradient-text">fix</span>
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-5">
+
+        <!-- Feature 1 -->
+        <div class="glass glass-hover rounded-2xl p-8 fade-up" style="animation-delay:0.05s">
+          <div class="mb-5 w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.25)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2 text-lg">Multi-Signal Detection</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Regex + Luhn checksums + field-name heuristics detect NRIC, card numbers, emails, bank accounts, and phone numbers across log files and Python source.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <span class="badge badge-violet">NRIC</span>
+            <span class="badge badge-cyan">Card</span>
+            <span class="badge badge-violet">Email</span>
+            <span class="badge badge-cyan">Phone</span>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="glass glass-hover rounded-2xl p-8 fade-up" style="animation-delay:0.1s">
+          <div class="mb-5 w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(6,182,212,0.12); border:1px solid rgba(6,182,212,0.25)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6-3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2 text-lg">AST Source Tracing</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Python AST analysis walks every <code class="text-violet-400 text-xs">logger.info</code>, <code class="text-violet-400 text-xs">logger.error</code>, and <code class="text-violet-400 text-xs">print()</code> call and correlates them back to the exact line that produced the leak.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <span class="badge badge-cyan">AST</span>
+            <span class="badge badge-violet">Source → Log</span>
+          </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="glass glass-hover rounded-2xl p-8 fade-up" style="animation-delay:0.15s">
+          <div class="mb-5 w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2 text-lg">One-Click Fix</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Every finding comes with a generated masking fix. Apply it directly from the dashboard and re-run the scan to verify zero leaks remain.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <span class="badge badge-emerald">Auto Fix</span>
+            <span class="badge badge-emerald">Rescan</span>
+          </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="glass glass-hover rounded-2xl p-8 fade-up" style="animation-delay:0.2s">
+          <div class="mb-5 w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.25)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2 text-lg">Confidence Scoring</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Each finding carries a confidence score built from regex match quality, field-name proximity, checksum validity, and log context weighting.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <span class="badge badge-violet">0 – 100%</span>
+          </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="glass glass-hover rounded-2xl p-8 fade-up" style="animation-delay:0.25s">
+          <div class="mb-5 w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(6,182,212,0.12); border:1px solid rgba(6,182,212,0.25)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2 text-lg">Scan History</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Track your remediation progress across every scan run. Watch the leak count fall from 8 → 4 → 0 on a clean, minimal chart.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <span class="badge badge-cyan">Progress Trend</span>
+          </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="glass glass-hover rounded-2xl p-8 fade-up" style="animation-delay:0.3s">
+          <div class="mb-5 w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-white mb-2 text-lg">Compliance Report</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">
+            Export a structured JSON report mapped to PDPA, PCI DSS, and internal banking policy categories. Designed to support security reviews.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-2">
+            <span class="badge badge-emerald">PDPA</span>
+            <span class="badge badge-emerald">PCI DSS</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section id="how-it-works" class="relative py-24 px-6">
+    <div class="max-w-[1400px] mx-auto">
+
+      <div class="text-center mb-16 fade-up">
+        <p class="section-label mb-3">Process</p>
+        <h2 class="font-serif font-normal text-white tracking-[-0.03em] text-4xl md:text-5xl">
+          Five steps to <span class="gradient-text">zero leaks</span>
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-5 gap-4">
+
+        <div class="glass rounded-2xl p-6 text-center fade-up" style="animation-delay:0.05s">
+          <div class="text-2xl font-serif text-violet-400 mb-3">01</div>
+          <h3 class="font-semibold text-white text-sm mb-2">Detect</h3>
+          <p class="text-zinc-500 text-xs leading-relaxed">Scan logs and source files for PII patterns.</p>
+        </div>
+
+        <div class="glass rounded-2xl p-6 text-center fade-up" style="animation-delay:0.1s">
+          <div class="text-2xl font-serif text-cyan-400 mb-3">02</div>
+          <h3 class="font-semibold text-white text-sm mb-2">Trace</h3>
+          <p class="text-zinc-500 text-xs leading-relaxed">AST walks the codebase to find the originating line.</p>
+        </div>
+
+        <div class="glass rounded-2xl p-6 text-center fade-up" style="animation-delay:0.15s">
+          <div class="text-2xl font-serif text-violet-400 mb-3">03</div>
+          <h3 class="font-semibold text-white text-sm mb-2">Explain</h3>
+          <p class="text-zinc-500 text-xs leading-relaxed">Dashboard surfaces the exact statement and masked value.</p>
+        </div>
+
+        <div class="glass rounded-2xl p-6 text-center fade-up" style="animation-delay:0.2s">
+          <div class="text-2xl font-serif text-cyan-400 mb-3">04</div>
+          <h3 class="font-semibold text-white text-sm mb-2">Fix</h3>
+          <p class="text-zinc-500 text-xs leading-relaxed">Auto-generated masking patch is applied in one click.</p>
+        </div>
+
+        <div class="glass rounded-2xl p-6 text-center fade-up" style="animation-delay:0.25s">
+          <div class="text-2xl font-serif text-emerald-400 mb-3">05</div>
+          <h3 class="font-semibold text-white text-sm mb-2">Verify</h3>
+          <p class="text-zinc-500 text-xs leading-relaxed">Rescan confirms zero leaks remain before deployment.</p>
+        </div>
+
+      </div>
+
+      <!-- Before / after security score -->
+      <div class="mt-10 grid md:grid-cols-2 gap-5 fade-up" style="animation-delay:0.3s">
+        <div class="glass rounded-2xl p-6">
+          <p class="section-label mb-4">Before scan</p>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-zinc-400">Security Score</span>
+            <span class="text-xs text-red-400 font-medium">0 / 100</span>
+          </div>
+          <div class="progress-track h-2">
+            <div class="progress-fill h-2" style="width:0%; background:linear-gradient(90deg,#ef4444,#f97316)"></div>
+          </div>
+          <p class="mt-3 text-xs text-zinc-600">4 unresolved leaks including 2 HIGH severity</p>
+        </div>
+        <div class="glass rounded-2xl p-6">
+          <p class="section-label mb-4">After fixes applied</p>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-zinc-400">Security Score</span>
+            <span class="text-xs font-medium" style="color:#6EE7B7">100 / 100</span>
+          </div>
+          <div class="progress-track h-2">
+            <div class="progress-fill h-2" style="width:100%"></div>
+          </div>
+          <p class="mt-3 text-xs text-zinc-600">All leaks resolved. Scan status: PASS</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== COMPLIANCE ===================== -->
+  <section id="compliance" class="relative py-24 px-6 overflow-hidden">
+    <div class="orb orb-cta-cyan"></div>
+    <div class="relative z-10 max-w-[1400px] mx-auto">
+
+      <div class="text-center mb-14 fade-up">
+        <p class="section-label mb-3">Compliance Coverage</p>
+        <h2 class="font-serif font-normal text-white tracking-[-0.03em] text-4xl md:text-5xl">
+          Built for regulated industries
+        </h2>
+        <p class="mt-4 text-zinc-500 text-sm max-w-xl mx-auto">
+          LogGuard maps each detected PII category to relevant regulatory exposure areas.
+          Not a compliance certification — designed to surface potential risk.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-5 fade-up" style="animation-delay:0.1s">
+
+        <div class="glass rounded-2xl p-7">
+          <div class="flex items-start justify-between mb-4">
+            <h3 class="font-semibold text-white">PDPA</h3>
+            <span class="badge badge-violet">MY</span>
+          </div>
+          <p class="text-zinc-400 text-sm leading-relaxed mb-4">
+            Personal Data Protection Act. Detects leakage of Malaysian NRIC, contact info, and financial data protected under local regulation.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge badge-violet">NRIC</span>
+            <span class="badge badge-violet">Email</span>
+            <span class="badge badge-violet">Phone</span>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-7">
+          <div class="flex items-start justify-between mb-4">
+            <h3 class="font-semibold text-white">PCI DSS</h3>
+            <span class="badge badge-cyan">Payments</span>
+          </div>
+          <p class="text-zinc-400 text-sm leading-relaxed mb-4">
+            Payment Card Industry Data Security Standard. Flags card numbers, CVV patterns, and account data that must never appear in application logs.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge badge-cyan">Card Number</span>
+            <span class="badge badge-cyan">Account</span>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-7">
+          <div class="flex items-start justify-between mb-4">
+            <h3 class="font-semibold text-white">Internal Policy</h3>
+            <span class="badge badge-emerald">Banking</span>
+          </div>
+          <p class="text-zinc-400 text-sm leading-relaxed mb-4">
+            Financial institution internal controls. Enforces that no customer-identifiable data flows into application or audit logs unmasked.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge badge-emerald">All PII Types</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CTA ===================== -->
+  <section class="relative py-28 px-6 overflow-hidden">
+    <div class="relative z-10 max-w-3xl mx-auto text-center fade-up">
+      <p class="section-label mb-5">Get Started</p>
+      <h2 class="font-serif font-normal leading-[0.92] tracking-[-0.045em] text-white mb-6" style="font-size:clamp(2.5rem,5vw,5rem)">
+        Your logs shouldn't<br/><span class="gradient-text">know your customers</span>
+      </h2>
+      <p class="text-zinc-400 text-base mb-10 leading-relaxed">
+        Run LogGuard against your project right now. No configuration required.
+      </p>
+      <a
+        href="/static/index.html"
+        class="inline-block rounded-xl bg-violet-600 px-9 py-4 text-base font-medium text-white transition-all duration-300 hover:-translate-y-1 hover:bg-violet-500 hover:shadow-[0_0_35px_-8px_#8b5cf6]"
+      >
+        Open Dashboard →
+      </a>
+
+      <!-- Terminal snippet -->
+      <div class="mt-12 glass rounded-2xl p-5 text-left" style="font-family:monospace">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="w-3 h-3 rounded-full" style="background:#ef4444"></span>
+          <span class="w-3 h-3 rounded-full" style="background:#f59e0b"></span>
+          <span class="w-3 h-3 rounded-full" style="background:#10b981"></span>
+          <span class="ml-3 text-xs text-zinc-600">bash</span>
+        </div>
+        <p class="text-xs leading-7">
+          <span style="color:#57606a">$</span> <span style="color:#A78BFA">uvicorn</span> <span style="color:#F5F5F5">app.main:app --reload</span><br/>
+          <span style="color:#57606a">INFO</span>     <span style="color:#A1A1AA">Uvicorn running on http://127.0.0.1:8000</span><br/>
+          <br/>
+          <span style="color:#57606a">$</span> <span style="color:#A78BFA">open</span> <span style="color:#22D3EE">http://localhost:8000/static/landing.html</span><br/>
+          <br/>
+          <span style="color:#10B981">✓</span> <span style="color:#A1A1AA">18 Python files scanned</span><br/>
+          <span style="color:#10B981">✓</span> <span style="color:#A1A1AA">1,420 log lines scanned</span><br/>
+          <span style="color:#ef4444">✗</span> <span style="color:#FCA5A5">4 PII leaks detected — open dashboard to fix</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="border-t px-6 py-8 text-center" style="border-color:rgba(255,255,255,0.06)">
+    <p class="text-xs text-zinc-600">
+      LogGuard — PII Log Leak Detector &nbsp;·&nbsp;
+      Built for developer security teams &nbsp;·&nbsp;
+      All scanning runs locally
+    </p>
+  </footer>
+
+  <script>
+    // Intersection observer for fade-up
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
