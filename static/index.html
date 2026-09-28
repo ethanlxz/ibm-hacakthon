@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PII Log Leak Detector</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 px-6 py-5 shadow-sm">
+    <h1 class="text-2xl font-bold text-gray-900">PII Log Leak Detector</h1>
+    <p class="text-sm text-gray-500 mt-1">Protect sensitive data before it reaches production logs</p>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+
+    <!-- Scan Controls -->
+    <div class="flex items-center gap-4 mb-8">
+      <button
+        id="scanBtn"
+        onclick="scanProject()"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors"
+      >
+        Scan Project
+      </button>
+      <span id="scanStatus" class="text-sm text-gray-500"></span>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total Leaks</p>
+        <p id="cardTotal" class="text-3xl font-bold text-gray-900">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-red-200 p-5">
+        <p class="text-xs font-medium text-red-500 uppercase tracking-wide mb-1">High Severity</p>
+        <p id="cardHigh" class="text-3xl font-bold text-red-600">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-yellow-200 p-5">
+        <p class="text-xs font-medium text-yellow-600 uppercase tracking-wide mb-1">Medium Severity</p>
+        <p id="cardMedium" class="text-3xl font-bold text-yellow-500">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-green-200 p-5">
+        <p class="text-xs font-medium text-green-600 uppercase tracking-wide mb-1">Low Severity</p>
+        <p id="cardLow" class="text-3xl font-bold text-green-600">—</p>
+      </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Detected Leaks</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <tr>
+              <th class="px-4 py-3 text-left">Severity</th>
+              <th class="px-4 py-3 text-left">PII Type</th>
+              <th class="px-4 py-3 text-left">Masked Value</th>
+              <th class="px-4 py-3 text-left">Log File</th>
+              <th class="px-4 py-3 text-left">Source File</th>
+              <th class="px-4 py-3 text-left">Line</th>
+              <th class="px-4 py-3 text-left">Action</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody" class="divide-y divide-gray-100">
+            <tr id="emptyRow">
+              <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                Run a scan to see results.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

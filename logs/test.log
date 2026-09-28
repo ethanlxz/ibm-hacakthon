@@ -1,0 +1,41 @@
+2024-01-15 08:00:01,123 INFO     uvicorn.access: Application startup complete.
+2024-01-15 08:00:02,456 INFO     app.main: Server listening on http://0.0.0.0:8000
+2024-01-15 08:00:05,789 DEBUG    demo_app.api_service: Request payload: {'name': 'Alice Tan', 'email': 'alice@example.com', 'ic_number': '991231-14-5678', 'card_number': '4111111111111111', 'account_number': '1234567890', 'phone': '+60123456789'}
+2024-01-15 08:00:06,001 INFO     demo_app.customer_service: Verifying identity for IC: 991231-14-5678
+2024-01-15 08:00:06,045 INFO     demo_app.customer_service: Processing Customer(name='Alice Tan', email='alice@example.com', ic_number='991231-14-5678', card_number='4111111111111111', account_number='1234567890', phone='+60123456789')
+2024-01-15 08:00:06,123 INFO     demo_app.payment_service: Payment initiated for account_number=1234567890
+2024-01-15 08:00:06,234 ERROR    demo_app.payment_service: Invalid payment payload: {'card_number': '4111111111111111', 'account_number': '1234567890', 'amount': -50.0}
+2024-01-15 08:00:06,235 ERROR    demo_app.payment_service: Traceback (most recent call last):
+2024-01-15 08:00:06,235 ERROR    demo_app.payment_service:   File "demo_app/payment_service.py", line 22, in process_payment
+2024-01-15 08:00:06,235 ERROR    demo_app.payment_service:     raise ValueError(f"Invalid payment payload: {payload}")
+2024-01-15 08:00:06,235 ERROR    demo_app.payment_service: ValueError: Invalid payment payload: {'card_number': '4111111111111111', 'account_number': '1234567890', 'amount': -50.0}
+2024-01-15 08:00:07,000 INFO     demo_app.customer_service: Customer lookup complete for customer_id=1
+2024-01-15 08:00:07,100 INFO     app.main: GET /api/results 200
+2024-01-15 08:00:08,200 DEBUG    demo_app.api_service: Request payload: {'name': 'Bob Lim', 'email': 'bob.lim@mail.com', 'ic_number': '870405-10-1234', 'card_number': '5500005555555559', 'account_number': '9876543210', 'phone': '0198765432'}
+2024-01-15 08:00:08,345 INFO     demo_app.customer_service: Verifying identity for IC: 870405-10-1234
+2024-01-15 08:00:08,400 INFO     demo_app.customer_service: Processing Customer(name='Bob Lim', email='bob.lim@mail.com', ic_number='870405-10-1234', card_number='5500005555555559', account_number='9876543210', phone='0198765432')
+2024-01-15 08:00:08,500 INFO     app.main: POST /api/scan 200
+2024-01-15 08:00:09,010 WARNING  demo_app.customer_service: Retry attempt 1 for customer_id=2
+2024-01-15 08:00:09,020 WARNING  demo_app.customer_service: Retry attempt 2 for customer_id=2
+2024-01-15 08:00:09,030 WARNING  demo_app.customer_service: Retry attempt 3 for customer_id=2
+2024-01-15 08:00:09,100 INFO     app.main: Health check OK
+2024-01-15 08:00:10,200 INFO     app.main: GET / 200
+2024-01-15 08:00:11,300 INFO     app.main: POST /api/scan 200
+2024-01-15 08:00:12,000 DEBUG    demo_app.api_service: Request payload: {'name': 'Charlie Wong', 'email': 'charlie.wong@corp.com', 'phone': '0123456789', 'action': 'update_profile'}
+2024-01-15 08:00:12,100 INFO     demo_app.customer_service: Profile updated for charlie.wong@corp.com
+2024-01-15 08:00:12,200 INFO     demo_app.customer_service: Sending confirmation to charlie.wong@corp.com
+2024-01-15 08:00:13,000 INFO     app.main: GET /api/results 200
+2024-01-15 08:00:14,100 INFO     demo_app.payment_service: Payment approved amount=250.00
+2024-01-15 08:00:14,200 INFO     demo_app.payment_service: Payment approved amount=75.50
+2024-01-15 08:00:15,000 INFO     demo_app.customer_service: Session started for bob.lim@mail.com
+2024-01-15 08:00:15,100 ERROR    demo_app.payment_service: Invalid payment payload: {'card_number': '5500005555555559', 'account_number': '9876543210', 'amount': -10.0}
+2024-01-15 08:00:15,200 INFO     app.main: POST /api/fix 200
+2024-01-15 08:00:16,000 INFO     app.main: GET / 200
+2024-01-15 08:00:17,000 INFO     app.main: GET /api/results 200
+2024-01-15 08:00:18,100 DEBUG    demo_app.api_service: Request payload: {'name': 'Diana Ng', 'ic_number': '950712-08-4321', 'phone': '+60187654321', 'action': 'kyc_check'}
+2024-01-15 08:00:18,200 INFO     demo_app.customer_service: KYC check initiated for IC: 950712-08-4321
+2024-01-15 08:00:18,300 INFO     demo_app.customer_service: KYC status: PASS
+2024-01-15 08:00:19,000 INFO     app.main: POST /api/rescan 200
+2024-01-15 08:00:20,000 INFO     app.main: Scan complete — 4 leaks detected
+2024-01-15 08:00:21,000 INFO     app.main: GET /api/results 200
+2024-01-15 08:00:22,000 INFO     uvicorn.access: Shutdown complete.
