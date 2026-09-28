@@ -56,6 +56,7 @@ function updateProgress(results) {
 
   const total = results.length;
   const highCritical = results.filter(r => r.severity === "HIGH" || r.severity === "CRITICAL").length;
+  const medium = results.filter(r => r.severity === "MEDIUM").length;
 
   wrap.classList.remove("hidden");
 
@@ -63,8 +64,11 @@ function updateProgress(results) {
     bar.style.width = "100%";
     if (lbl) lbl.textContent = "CLEAN — No leaks detected";
   } else {
-    // Score degrades with high/critical leaks most heavily
-    const score = Math.max(0, 100 - highCritical * 25 - (total - highCritical) * 8);
+    // Weight findings: HIGH/CRITICAL count 3×, MEDIUM 1.5×, LOW 1×
+    const weightedLeaks = highCritical * 3 + medium * 1.5 + (total - highCritical - medium);
+    // Normalise against a baseline of 10 weighted units = 0 score,
+    // so a single HIGH leak gives a score around 70 and it degrades smoothly.
+    const score = Math.round(Math.max(0, 100 * Math.exp(-weightedLeaks / 10)));
     bar.style.width = score + "%";
     if (lbl) lbl.textContent = `Score ${score}/100`;
   }
