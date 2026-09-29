@@ -1,8 +1,16 @@
-# BobGuard — PII Log Leak Detector
+<div align="center">
 
-> **Built with IBM Bob** · Python 3.12 · FastAPI · Tailwind CSS
+  <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=700&size=44&duration=2600&pause=900&color=8B5CF6&center=true&vCenter=true&width=720&lines=BobGuard;PII+Log+Leak+Detector;Secure+logs+before+production" alt="Animated BobGuard title" />
 
-BobGuard is a developer security tool that catches personally identifiable information (PII) leaking through application logs and source code **before those logs ever reach production**. It was scaffolded, planned, implemented, and refined entirely through IBM Bob — from high-level vision through detailed phase planning, code execution, test authoring, and iterative fixing — making it a working demonstration of AI-assisted secure software development.
+  <p><strong>2026 IBM Bobathon Top 10 Project</strong> · selected among 130 participants</p>
+
+  <p>
+    <strong>Built with IBM Bob</strong> · Python 3.12 · FastAPI · Tailwind CSS
+  </p>
+
+</div>
+
+BobGuard is a developer security tool built for the **2026 IBM Bobathon**, where it placed in the **Top 10 among 130 participants**. It catches personally identifiable information (PII) leaking through application logs and source code **before those logs ever reach production**. It was scaffolded, planned, implemented, and refined entirely through IBM Bob — from high-level vision through detailed phase planning, code execution, test authoring, and iterative fixing — making it a working demonstration of AI-assisted secure software development.
 
 ---
 
